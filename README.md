@@ -1,19 +1,58 @@
 # Frontend Legacy — Vue 3
 
-SPA para la prueba técnica. Migrado de Vue 2 a **Vue 3 + Vite + Pinia + Composition API**.
+SPA: **Vue 3 + Vite + Pinia + Tailwind CSS v4** + Composition API.
 
-## Stack
+## Docker — paso 2 (frontend)
 
-- Vue 3
-- Vite 5
-- Vue Router 4
-- Pinia 2
-- Axios (`@/api/client`)
+> **Evaluador:** ejecutar **después** del backend. El paso 1 levanta **MySQL + API**; este paso solo levanta el **frontend**.
 
-Documentación de la migración: **[UPGRADE.md](./UPGRADE.md)**  
-Docker: **[DOCKER.md](./DOCKER.md)** · Backend: **[../backend-legacy-laravel8/DOCKER.md](../backend-legacy-laravel8/DOCKER.md)**
+### 1. Backend (obligatorio primero)
 
-## Instalación (local)
+```bash
+cd ../backend-legacy-laravel8
+docker compose up -d --build
+```
+
+Comprobar: http://localhost:8000/api/health
+
+### 2. Frontend (esta carpeta)
+
+```bash
+cd ../frontend-legacy-vue2
+docker compose up -d --build
+docker compose logs -f frontend
+```
+
+Esperar: `Backend is ready. Starting Vite...`
+
+| Recurso | URL |
+|---------|-----|
+| **Aplicación** | http://localhost:5173 |
+
+Las peticiones van a `/api` en el mismo origen; Vite las reenvía a `http://api:8000` dentro de Docker.
+
+**No es necesario:** `npm install` ni `.env` en el host para Docker.
+
+Detalle: [DOCKER.md](./DOCKER.md) · Guía completa evaluador: [../README.md](../README.md)
+
+### Credenciales API (login en la SPA)
+
+```txt
+email: admin@legacy.test
+password: password
+```
+
+### Parar
+
+```bash
+docker compose down
+```
+
+---
+
+## Instalación local (sin Docker)
+
+Backend en http://127.0.0.1:8000.
 
 ```bash
 cp .env.example .env
@@ -21,41 +60,16 @@ npm install
 npm run dev
 ```
 
-Requiere el backend en `http://127.0.0.1:8000` (Vite proxy hacia `/api`).
-
-## Docker
-
-Orden: **backend primero**, luego frontend.
-
-```bash
-cd ../backend-legacy-laravel8
-docker compose up -d --build
-
-cd ../frontend-legacy-vue2
-docker compose up -d --build
-```
-
-App: http://localhost:5173
-
-| Servicio | DNS | Puerto |
-|----------|-----|--------|
-| Vite | `frontend` | 5173 |
-
-## Variables
+Variables típicas:
 
 ```txt
 VITE_API_URL=/api
-VITE_PROXY_TARGET=http://127.0.0.1:8000   # local
-VITE_PROXY_TARGET=http://api:8000         # Docker
+VITE_PROXY_TARGET=http://127.0.0.1:8000
 ```
 
-## Credenciales (API)
+---
 
-```txt
-email: admin@legacy.test
-password: password
-```
+## Documentación
 
-## Nota
-
-Persisten debilidades intencionales en validación y UX. El stack ya cumple Vue 3, Pinia y servicio HTTP centralizado.
+- [DOCKER.md](./DOCKER.md) — proxy, red `legacy_shared`, entrypoint
+- [UPGRADE.md](./UPGRADE.md) — migración Vue 2 → 3

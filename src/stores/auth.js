@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import api from '@/api/client'
+import { unwrapData } from '@/api/response'
 
 const TOKEN_KEY = 'token'
 
@@ -25,10 +26,11 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function login(email, password) {
-    const { data } = await api.post('/login', { email, password })
-    setToken(data.token)
-    user.value = data.user
-    return data
+    const response = await api.post('/login', { email, password })
+    const payload = unwrapData(response)
+    setToken(payload.token)
+    user.value = payload.user
+    return payload
   }
 
   async function logout() {

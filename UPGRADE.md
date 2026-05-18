@@ -126,9 +126,39 @@ Docker: ver [README.md](./README.md).
 
 ---
 
+## Plan de migración (frontend)
+
+| Paso | Acción |
+|------|--------|
+| 1 | Sustituir arranque Vue 2 por `createApp` + Pinia + Router 4 |
+| 2 | Centralizar HTTP en `@/api/client` y auth en `stores/auth.js` |
+| 3 | Reescribir vistas a `<script setup>` manteniendo rutas y pantallas |
+| 4 | Ajustar Vite 5 + `@vitejs/plugin-vue`; proxy `/api` sin cambiar URL en el navegador |
+| 5 | Validar con backend en Docker (`legacy_shared`, `VITE_PROXY_TARGET=http://api:8000`) |
+
+---
+
+## Decisiones técnicas
+
+| Decisión | Elección | Motivo |
+|----------|----------|--------|
+| Estado global | **Pinia** solo para auth | Evita sobre-ingeniería; listados siguen en vistas con `api` |
+| HTTP | **Axios** + `baseURL: '/api'` | Mismo patrón que legacy; proxy resuelve host Docker `api` |
+| Build | **Vite 5** | Arranque rápido y HMR; reemplaza cadena Vue CLI/webpack |
+| API en contenedor | **Entrypoint espera `/api/health`** | El frontend no arranca antes que la API en paso 2 de Docker |
+| Errores 401 | Limpiar token + guard de rutas | Mejora UX frente al legacy sin cambiar contrato de login |
+
+---
+
+## UI — Tailwind CSS v4
+
+- `@tailwindcss/vite` + `tailwindcss` en `vite.config.js`
+- Estilos globales: `src/styles.css` (`@import 'tailwindcss'`, tema oscuro, componentes `.glass-card`, `.btn-*`, `.input-field`)
+- Componentes: `AlertBanner`, `PageHeader`, `LoadingSpinner`
+- Tipografía: **DM Sans** (Google Fonts)
+
 ## Qué no se incluyó (fuera de alcance)
 
-- Tailwind CSS
 - Normalización avanzada de errores API
 - Stores Pinia para productos/categorías (solo auth; el resto usa `api` en vistas)
 - Tests E2E / unitarios frontend

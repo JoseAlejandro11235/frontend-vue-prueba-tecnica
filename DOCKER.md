@@ -1,38 +1,78 @@
-# Dockerización — frontend (Vue 3 + Vite + Pinia)
+# Docker — frontend (paso 2)
 
-Red compartida `legacy_shared` con el backend. Documentación completa backend + red:
-
-**[../backend-legacy-laravel8/DOCKER.md](../backend-legacy-laravel8/DOCKER.md)**
-
-Migración Vue 2 → 3: **[UPGRADE.md](./UPGRADE.md)**
+**Evaluador:** leer primero [../README.md](../README.md). El **MySQL** y la **API** se levantan en el paso 1 (`backend-legacy-laravel8`).
 
 ---
 
-## Stack en contenedor
+## Arranque
 
-- Node 18
-- Vite 5 dev server (`0.0.0.0:5173`)
-- Vue 3 + Pinia (build en imagen; código montado en desarrollo)
+```bash
+# 1) Backend (MySQL + API) — obligatorio
+cd ../backend-legacy-laravel8
+docker compose up -d --build
+
+# 2) Frontend
+cd ../frontend-legacy-vue2
+docker compose up -d --build
+docker compose logs -f frontend
+```
+
+| Servicio | Puerto host | URL |
+|----------|-------------|-----|
+| `frontend` | 5173 | http://localhost:5173 |
 
 ---
 
-## Problemas y soluciones (Docker)
+## Qué hace Docker automáticamente
+
+- `npm ci` en la imagen (`package-lock.json`)
+- `docker/entrypoint.sh` espera `http://api:8000/api/health` (hostname `api` en red `legacy_shared`)
+- Vite con `host: 0.0.0.0` y proxy `/api` → `VITE_PROXY_TARGET` (`http://api:8000` en Compose)
+
+**No hace falta** `npm install` ni crear `.env` en el host.
+
+---
+
+## Red Docker
+
+- El backend crea `legacy_shared` (`name: legacy_shared`)
+- Este compose usa `networks.legacy_shared.external: true`
+- Si falla con *network not found* → ejecutar el paso 1 del backend
+
+---
+
+## Problemas y soluciones
 
 ### El navegador no resuelve `http://api:8000`
 
-**Solución:** `VITE_API_URL=/api` + proxy Vite → `http://api:8000` (`VITE_PROXY_TARGET`).
+El navegador está fuera de Docker. **Solución:** `VITE_API_URL=/api` y proxy Vite hacia `http://api:8000` dentro del contenedor.
 
-### `node_modules` y bind mount
+### Frontend en bucle “Waiting for backend API…”
 
-**Solución:** volumen `legacy_frontend_node_modules` en `/app/node_modules`.
+La API aún no terminó migración/seed o no está healthy. Revisar:
 
-### Red externa
+```bash
+cd ../backend-legacy-laravel8
+docker compose logs -f api
+```
 
-**Solución:** levantar el backend antes del frontend (`legacy_shared` external).
+### Puerto 5173 ocupado
 
-### Migración a Vue 3
+Cambiar `5173:5173` en `docker-compose.yml` o liberar el puerto.
 
-**Cambio:** `@vitejs/plugin-vue` sustituye a `plugin-vue2`. El `Dockerfile` sigue siendo `npm run dev`; no requiere cambios de puertos ni red.
+### “Site can’t be reached” / contenedor `Exited (1)`
+
+Suele ser Vite que no arranca. Ver logs:
+
+```bash
+docker compose logs frontend
+```
+
+Con **Tailwind v4**, la imagen debe ser `node:20-bookworm-slim` (no Alpine): el error `Cannot find native binding` en `@tailwindcss/oxide` hace caer el contenedor. Reconstruir:
+
+```bash
+docker compose up -d --build
+```
 
 ---
 
@@ -40,9 +80,10 @@ Migración Vue 2 → 3: **[UPGRADE.md](./UPGRADE.md)**
 
 | Archivo | Rol |
 |---------|-----|
-| `docker-compose.yml` | Servicio `frontend`, red `legacy_shared` |
-| `vite.config.js` | Proxy `/api`, alias `@`, host `0.0.0.0` |
-| `src/api/client.js` | HTTP centralizado |
-| `src/stores/auth.js` | Pinia sesión |
+| `docker-compose.yml` | Servicio `frontend`, red externa, `VITE_PROXY_TARGET` |
+| `Dockerfile` | Node 20 bookworm-slim, `npm ci`, entrypoint |
+| `docker/entrypoint.sh` | Espera health del backend |
+| `vite.config.js` | Proxy `/api`, `host: 0.0.0.0` |
+| `src/api/client.js` | `baseURL: '/api'` |
 
-Ver [README.md](./README.md) para comandos.
+Backend (MySQL, API, healthchecks): [../backend-legacy-laravel8/DOCKER.md](../backend-legacy-laravel8/DOCKER.md)
