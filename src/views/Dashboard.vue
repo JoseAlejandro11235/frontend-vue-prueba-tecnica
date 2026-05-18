@@ -2,12 +2,12 @@
   <div class="container">
     <h1>Dashboard</h1>
     <p v-if="loading">Cargando...</p>
-    <p class="error" v-if="error">{{ error }}</p>
+    <p v-if="error" class="error">{{ error }}</p>
 
     <div class="card">
       <h3>Productos: {{ data.products }}</h3>
       <h3>Categorías: {{ data.categories }}</h3>
-      <h3>Bajo stock: {{ data.low_stock ? data.low_stock.length : 0 }}</h3>
+      <h3>Bajo stock: {{ data.low_stock?.length ?? 0 }}</h3>
     </div>
 
     <div class="card">
@@ -21,28 +21,24 @@
   </div>
 </template>
 
-<script>
-import axios from 'axios'
+<script setup>
+import { onMounted, ref } from 'vue'
+import api from '@/api/client'
 
-export default {
-  data() {
-    return {
-      loading: false,
-      error: '',
-      data: {}
-    }
-  },
-  mounted() {
-    this.loading = true
-    axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api') + '/dashboard', {
-      headers: { Authorization: 'Bearer ' + localStorage.getItem('token') }
-    }).then(res => {
-      this.data = res.data
-    }).catch(() => {
-      this.error = 'No se pudo cargar dashboard'
-    }).finally(() => {
-      this.loading = false
-    })
+const loading = ref(false)
+const error = ref('')
+const data = ref({})
+
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const { data: payload } = await api.get('/dashboard')
+    data.value = payload
+  } catch {
+    error.value = 'No se pudo cargar dashboard'
+  } finally {
+    loading.value = false
   }
-}
+})
 </script>

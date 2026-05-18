@@ -1,13 +1,13 @@
 <template>
   <div class="container">
     <h1>Categorías</h1>
-    <p class="error" v-if="error">{{ error }}</p>
-    <p class="success" v-if="success">{{ success }}</p>
+    <p v-if="error" class="error">{{ error }}</p>
+    <p v-if="success" class="success">{{ success }}</p>
 
     <div class="card">
       <input v-model="form.name" placeholder="Nombre categoría" />
       <input v-model="form.description" placeholder="Descripción" />
-      <button @click="save">Guardar</button>
+      <button type="button" @click="save">Guardar</button>
     </div>
 
     <table>
@@ -25,8 +25,8 @@
           <td>{{ c.name }}</td>
           <td>{{ c.status }}</td>
           <td>
-            <button @click="edit(c)">Editar</button>
-            <button @click="remove(c.id)">Eliminar</button>
+            <button type="button" @click="edit(c)">Editar</button>
+            <button type="button" @click="remove(c.id)">Eliminar</button>
           </td>
         </tr>
       </tbody>
@@ -34,53 +34,58 @@
   </div>
 </template>
 
-<script>
-import axios from 'axios'
+<script setup>
+import { onMounted, reactive, ref } from 'vue'
+import api from '@/api/client'
 
-export default {
-  data() {
-    return {
-      categories: [],
-      form: { id: null, name: '', description: '', status: 1 },
-      error: '',
-      success: ''
-    }
-  },
-  mounted() {
-    this.load()
-  },
-  methods: {
-    load() {
-      axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api') + '/categories', {
-        headers: { Authorization: 'Bearer ' + localStorage.getItem('token') }
-      }).then(res => {
-        this.categories = res.data.categories
-      }).catch(() => this.error = 'Error al cargar categorías')
-    },
-    edit(c) {
-      this.form = c
-    },
-    save() {
-      if (!this.form.name) {
-        this.error = 'Nombre obligatorio'
-        return
-      }
-      const url = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api') + '/categories' + (this.form.id ? '/' + this.form.id : '')
-      const method = this.form.id ? 'put' : 'post'
-      axios({ method, url, data: this.form, headers: { Authorization: 'Bearer ' + localStorage.getItem('token') } })
-        .then(() => {
-          this.success = 'Guardado'
-          this.form = { id: null, name: '', description: '', status: 1 }
-          this.load()
-        }).catch(err => {
-          this.error = err.response ? JSON.stringify(err.response.data) : 'Error'
-        })
-    },
-    remove(id) {
-      axios.delete((import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api') + '/categories/' + id, {
-        headers: { Authorization: 'Bearer ' + localStorage.getItem('token') }
-      }).then(() => this.load())
-    }
+const categories = ref([])
+const form = reactive({ id: null, name: '', description: '', status: 1 })
+const error = ref('')
+const success = ref('')
+
+async function load() {
+  try {
+    const { data } = await api.get('/categories')
+    categories.value = data.categories
+  } catch {
+    error.value = 'Error al cargar categorías'
   }
 }
+
+function edit(category) {
+  Object.assign(form, category)
+}
+
+function resetForm() {
+  form.id = null
+  form.name = ''
+  form.description = ''
+  form.status = 1
+}
+
+async function save() {
+  if (!form.name) {
+    error.value = 'Nombre obligatorio'
+    return
+  }
+  try {
+    if (form.id) {
+      await api.put(`/categories/${form.id}`, form)
+    } else {
+      await api.post('/categories', form)
+    }
+    success.value = 'Guardado'
+    resetForm()
+    await load()
+  } catch (err) {
+    error.value = err.response ? JSON.stringify(err.response.data) : 'Error'
+  }
+}
+
+async function remove(id) {
+  await api.delete(`/categories/${id}`)
+  await load()
+}
+
+onMounted(load)
 </script>

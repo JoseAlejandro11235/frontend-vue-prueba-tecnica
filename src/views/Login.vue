@@ -1,39 +1,39 @@
 <template>
   <div class="container">
     <div class="card">
-      <h2>Login Legacy</h2>
-      <p class="error" v-if="error">{{ error }}</p>
+      <h2>Login</h2>
+      <p v-if="error" class="error">{{ error }}</p>
       <input v-model="email" placeholder="Email" />
       <input v-model="password" placeholder="Password" type="password" />
-      <button @click="login">Ingresar</button>
+      <button type="button" :disabled="loading" @click="submit">Ingresar</button>
     </div>
   </div>
 </template>
 
-<script>
-import axios from 'axios'
+<script setup>
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
-export default {
-  data() {
-    return {
-      email: 'admin@legacy.test',
-      password: 'password',
-      error: ''
-    }
-  },
-  methods: {
-    login() {
-      // Legacy issue: no loading state and no strong frontend validation.
-      axios.post((import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api') + '/login', {
-        email: this.email,
-        password: this.password
-      }).then(res => {
-        localStorage.setItem('token', res.data.token)
-        this.$router.push('/dashboard')
-      }).catch(err => {
-        this.error = err.response ? err.response.data.message || err.response.data.error : 'Error de red'
-      })
-    }
+const router = useRouter()
+const auth = useAuthStore()
+
+const email = ref('admin@legacy.test')
+const password = ref('password')
+const error = ref('')
+const loading = ref(false)
+
+async function submit() {
+  error.value = ''
+  loading.value = true
+  try {
+    await auth.login(email.value, password.value)
+    router.push({ name: 'dashboard' })
+  } catch (err) {
+    const data = err.response?.data
+    error.value = data?.message || data?.error || 'Error de red'
+  } finally {
+    loading.value = false
   }
 }
 </script>

@@ -1,0 +1,22 @@
+services:
+  frontend:
+    build: .
+    container_name: legacy_frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: /api
+      VITE_PROXY_TARGET: http://api:8000
+    volumes:
+      - .:/app
+      - legacy_frontend_node_modules:/app/node_modules
+    networks:
+      - legacy_shared
+
+volumes:
+  legacy_frontend_node_modules:
+
+networks:
+  legacy_shared:
+    external: true
+    name: legacy_shared

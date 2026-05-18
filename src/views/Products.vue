@@ -1,20 +1,20 @@
 <template>
   <div class="container">
     <h1>Productos</h1>
-    <router-link to="/products/new">Nuevo producto</router-link>
+    <router-link :to="{ name: 'products-new' }">Nuevo producto</router-link>
 
     <div class="card">
       <input v-model="q" placeholder="Buscar producto" />
-      <select v-model="category_id">
+      <select v-model="categoryId">
         <option value="">Todas las categorías</option>
         <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
       </select>
-      <button @click="loadProducts">Buscar</button>
+      <button type="button" @click="loadProducts">Buscar</button>
     </div>
 
     <p v-if="loading">Cargando productos...</p>
-    <p class="error" v-if="error">{{ error }}</p>
-    <p class="success" v-if="success">{{ success }}</p>
+    <p v-if="error" class="error">{{ error }}</p>
+    <p v-if="success" class="success">{{ success }}</p>
 
     <table>
       <thead>
@@ -31,13 +31,13 @@
         <tr v-for="p in products" :key="p.id">
           <td>{{ p.id }}</td>
           <td>{{ p.name }}</td>
-          <td>{{ p.category ? p.category.name : '-' }}</td>
+          <td>{{ p.category?.name ?? '-' }}</td>
           <td>{{ p.price }}</td>
           <td>{{ p.stock }}</td>
           <td>
-            <router-link :to="'/products/' + p.id + '/edit'">Editar</router-link>
-            <router-link :to="'/products/' + p.id + '/stock'">Stock</router-link>
-            <button @click="remove(p.id)">Eliminar</button>
+            <router-link :to="{ name: 'products-edit', params: { id: p.id } }">Editar</router-link>
+            <router-link :to="{ name: 'products-stock', params: { id: p.id } }">Stock</router-link>
+            <button type="button" @click="remove(p.id)">Eliminar</button>
           </td>
         </tr>
       </tbody>
@@ -45,58 +45,51 @@
   </div>
 </template>
 
-<script>
-import axios from 'axios'
+<script setup>
+import { onMounted, ref } from 'vue'
+import api from '@/api/client'
 
-export default {
-  data() {
-    return {
-      products: [],
-      categories: [],
-      loading: false,
-      error: '',
-      success: '',
-      q: '',
-      category_id: ''
-    }
-  },
-  mounted() {
-    this.loadCategories()
-    this.loadProducts()
-  },
-  methods: {
-    loadCategories() {
-      axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api') + '/categories', {
-        headers: { Authorization: 'Bearer ' + localStorage.getItem('token') }
-      }).then(res => {
-        this.categories = res.data.categories
-      })
-    },
-    loadProducts() {
-      this.loading = true
-      this.error = ''
-      axios.get((import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api') + '/products?q=' + this.q + '&category_id=' + this.category_id, {
-        headers: { Authorization: 'Bearer ' + localStorage.getItem('token') }
-      }).then(res => {
-        // Legacy issue: assumes backend returns array directly.
-        this.products = res.data
-      }).catch(err => {
-        this.error = err.response ? 'Error: ' + err.response.status : 'Error de red'
-      }).finally(() => {
-        this.loading = false
-      })
-    },
-    remove(id) {
-      if (!confirm('¿Eliminar producto?')) return
-      axios.delete((import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api') + '/products/' + id, {
-        headers: { Authorization: 'Bearer ' + localStorage.getItem('token') }
-      }).then(() => {
-        this.success = 'Producto eliminado'
-        this.loadProducts()
-      }).catch(() => {
-        this.error = 'No se pudo eliminar'
-      })
-    }
+const products = ref([])
+const categories = ref([])
+const loading = ref(false)
+const error = ref('')
+const success = ref('')
+const q = ref('')
+const categoryId = ref('')
+
+async function loadCategories() {
+  const { data } = await api.get('/categories')
+  categories.value = data.categories
+}
+
+async function loadProducts() {
+  loading.value = true
+  error.value = ''
+  try {
+    const { data } = await api.get('/products', {
+      params: { q: q.value, category_id: categoryId.value },
+    })
+    products.value = data
+  } catch (err) {
+    error.value = err.response ? `Error: ${err.response.status}` : 'Error de red'
+  } finally {
+    loading.value = false
   }
 }
+
+async function remove(id) {
+  if (!confirm('¿Eliminar producto?')) return
+  try {
+    await api.delete(`/products/${id}`)
+    success.value = 'Producto eliminado'
+    await loadProducts()
+  } catch {
+    error.value = 'No se pudo eliminar'
+  }
+}
+
+onMounted(() => {
+  loadCategories()
+  loadProducts()
+})
 </script>
